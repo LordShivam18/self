@@ -1,14 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import Node from "@components/Node";
-import Arrow from "@components/Arrow";
-import Pointer from "@components/Pointer";
-
-
-
-
-
+import Node from "@/components/Node";
+import Arrow from "@/components/Arrow";
+import Pointer from "@/components/Pointer";
 
 export default function CycleDetection() {
   // Initial Linked List
@@ -18,6 +13,11 @@ export default function CycleDetection() {
   const [fastIndex, setFastIndex] = useState(0);
   const [explanation, setExplanation] = useState("Click Start to begin detecting cycle.");
   const [cycleFound, setCycleFound] = useState(false);
+
+  // ===== Pointer Animation Positions =====
+  const NODE_GAP = 110; // Adjust until the pointer aligns perfectly
+  const slowPos = slowIndex * NODE_GAP;
+  const fastPos = fastIndex * NODE_GAP;
 
   function step() {
     if (cycleFound) return;
@@ -32,9 +32,7 @@ export default function CycleDetection() {
       setCycleFound(true);
       setExplanation(`Cycle detected! Slow and Fast met at value ${nodes[newSlow]}.`);
     } else {
-      setExplanation(
-        `Slow moved to ${nodes[newSlow]}, Fast moved to ${nodes[newFast]}.`
-      );
+      setExplanation(`Slow moved to ${nodes[newSlow]}, Fast moved to ${nodes[newFast]}.`);
     }
   }
 
@@ -50,27 +48,42 @@ export default function CycleDetection() {
 
       <h1 className="text-4xl font-bold">Linked List Cycle Detection</h1>
 
-      {/* Visualization */}
-      <div className="flex items-center gap-4">
-        {nodes.map((value, index) => (
-          <div key={index} className="flex flex-col items-center">
-            <Node 
-              value={value} 
-              isCycleNode={cycleFound && index === slowIndex}
-            />
-            <div className="h-2" />
-            {slowIndex === index && <Pointer type="slow" />}
-            {fastIndex === index && <Pointer type="fast" />}
-          </div>
-        ))}
+      {/* ===== Visualization ===== */}
+      <div className="flex flex-col items-center">
+
+        {/* ===== Animated Pointer Layer ===== */}
+        <div className="relative h-12 w-full mb-4">
+          <Pointer type="slow" position={slowPos} />
+          <Pointer type="fast" position={fastPos} />
+        </div>
+
+        {/* ===== Nodes + Arrows ===== */}
+        <div className="flex items-center gap-2">
+          {nodes.map((value, index) => (
+            <div key={index} className="flex items-center gap-2">
+
+              {/* Node */}
+              <Node
+                value={value}
+                isCycleNode={cycleFound && index === slowIndex}
+              />
+
+              {/* Straight arrows */}
+              {index < nodes.length - 1 && <Arrow />}
+
+              {/* Curved loop arrow */}
+              {index === nodes.length - 1 && <Arrow type="cycle" />}
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Explanation Box */}
+      {/* ===== Explanation Box ===== */}
       <div className="bg-gray-900 text-gray-200 p-4 rounded-xl max-w-xl text-center shadow-[0_0_12px_#22d3ee]">
         {explanation}
       </div>
 
-      {/* Buttons */}
+      {/* ===== Buttons ===== */}
       <div className="flex gap-4">
         <button
           onClick={step}
