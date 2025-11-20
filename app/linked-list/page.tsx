@@ -11,7 +11,7 @@ export default function LinkedListTopics() {
 
       <div className="flex flex-col gap-6 w-full max-w-xl">
 
-        {/* Cycle */}
+        {/* Cycle Detection */}
         <Link href="/linked-list/cycle">
           <button className="
             w-full py-4 rounded-xl text-lg font-medium
@@ -35,7 +35,7 @@ export default function LinkedListTopics() {
           </button>
         </Link>
 
-        {/* Merge Two Sorted Lists — NEW */}
+        {/* Merge Two Sorted Lists */}
         <Link href="/linked-list/merge-two-sorted-lists">
           <button className="
             w-full py-4 rounded-xl text-lg font-medium
@@ -44,6 +44,19 @@ export default function LinkedListTopics() {
             transition
           ">
             Merge Two Sorted Lists
+          </button>
+        </Link>
+
+        {/* ⭐ NEW: Reverse Nodes in k-Group (Hard) */}
+        <Link href="/linked-list/reverse-k-group">
+          <button className="
+            w-full py-4 rounded-xl text-lg font-medium
+            bg-[#200f0f] hover:bg-[#2a1414]
+            border border-[#ff4444aa]
+            shadow-[0_0_18px_#ff444455]
+            transition
+          ">
+            Reverse Nodes in <span className="text-red-400 font-bold">k</span>-Group
           </button>
         </Link>
 
