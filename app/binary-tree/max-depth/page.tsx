@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+
+// ✅ Correct imports (matching your actual components)
 import ModeToggleBT, { ModeBT } from "@/components/binary-tree/max-depth/ModeToggleBT";
 import TreeView, {
   TreeNodeMeta,
@@ -33,7 +35,7 @@ type LastAction =
   | null;
 
 const ROOT_ID = "root";
-const MAX_THEORETICAL_DEPTH = 3; // for info pill only
+const MAX_THEORETICAL_DEPTH = 3;
 
 export default function MaxDepthBinaryTreePage() {
   const [status, setStatus] = useState<Status>("ready");
@@ -59,11 +61,10 @@ export default function MaxDepthBinaryTreePage() {
   function step() {
     if (status === "done") return;
 
-    // First step: initialise BFS
     if (status === "ready") {
       setStatus("running");
       setDepth(1);
-      setLevelRemaining(queue.length); // should be 1 (root)
+      setLevelRemaining(queue.length);
       setCurrentId(null);
       setLastAction({
         kind: "start-level",
@@ -73,10 +74,8 @@ export default function MaxDepthBinaryTreePage() {
       return;
     }
 
-    // Running: if we finished the nodes for this level
     if (levelRemaining === 0) {
       if (queue.length === 0) {
-        // No more nodes -> done
         setStatus("done");
         setCurrentId(null);
         setLastAction({
@@ -85,7 +84,6 @@ export default function MaxDepthBinaryTreePage() {
         });
         return;
       } else {
-        // Start a new level
         const newDepth = depth + 1;
         setDepth(newDepth);
         setLevelRemaining(queue.length);
@@ -99,7 +97,6 @@ export default function MaxDepthBinaryTreePage() {
       }
     }
 
-    // We are in the middle of a level: process one node
     const nodeId = queue[0];
     const rest = queue.slice(1);
     const children: string[] = [];
@@ -113,9 +110,7 @@ export default function MaxDepthBinaryTreePage() {
     setQueue(newQueue);
     setLevelRemaining(levelRemaining - 1);
     setCurrentId(nodeId);
-    setVisited((prev) =>
-      prev.includes(nodeId) ? prev : [...prev, nodeId]
-    );
+    setVisited((prev) => (prev.includes(nodeId) ? prev : [...prev, nodeId]));
     setLastAction({
       kind: "visit-node",
       nodeId,
@@ -126,17 +121,15 @@ export default function MaxDepthBinaryTreePage() {
   }
 
   function activeCodeLine(): number {
-    if (status === "ready") return 2; // if (!root) return 0;
+    if (status === "ready") return 2;
     if (!lastAction) return 5;
 
-    if (lastAction.kind === "start-level") {
-      return 6; // while / levelSize / depth++
-    }
+    if (lastAction.kind === "start-level") return 6;
 
     if (lastAction.kind === "visit-node") {
-      if (lastAction.added.length === 0) return 10; // just pop
-      if (lastAction.added.length === 1) return 11; // one child
-      return 12; // both children
+      if (lastAction.added.length === 0) return 10;
+      if (lastAction.added.length === 1) return 11;
+      return 12;
     }
 
     if (lastAction.kind === "done") return 15;
@@ -148,48 +141,43 @@ export default function MaxDepthBinaryTreePage() {
     if (status === "ready") {
       return mode === "beginner"
         ? "We’ll walk the tree level by level using a queue. Each layer of nodes we fully process adds +1 to the depth."
-        : "We’ll compute the maximum depth via a breadth-first traversal. At each level, we process all nodes currently in the queue and then increment depth.";
+        : "Compute the height using a BFS traversal. Each complete frontier represents one full level.";
     }
 
-    if (!lastAction) {
-      return "Click Step to advance the BFS through the tree.";
-    }
+    if (!lastAction) return "Click Step to advance the BFS.";
 
     if (lastAction.kind === "start-level") {
       return mode === "beginner"
-        ? `We are starting level ${lastAction.level}. All nodes currently in the queue live at this depth. Once we process them, the depth becomes ${lastAction.level}.`
-        : `Queue snapshot before this level: [${lastAction.queueSnapshot
-            .map((id) => NODES_BY_ID[id]?.label ?? id)
-            .join(", ")}]. We set levelSize = q.size() and then increment depth.`;
+        ? `We are starting level ${lastAction.level}. All nodes currently in the queue belong to this depth.`
+        : `Queue before this level: [${lastAction.queueSnapshot
+            .map((id) => NODES_BY_ID[id]?.label)
+            .join(", ")}].`;
     }
 
     if (lastAction.kind === "visit-node") {
       const node = NODES_BY_ID[lastAction.nodeId];
       const addedLabels = lastAction.added
-        .map((id) => NODES_BY_ID[id]?.label ?? id)
+        .map((id) => NODES_BY_ID[id]?.label)
         .join(", ");
 
       if (mode === "beginner") {
-        if (lastAction.added.length === 0) {
-          return `We visit node ${node.label}. It has no children, so the queue simply shrinks. We’re one step closer to finishing this level.`;
-        }
-        return `We visit node ${node.label}. Its child${
-          lastAction.added.length > 1 ? "ren" : ""
-        } (${addedLabels}) get pushed into the queue so they’ll be processed in the next level.`;
-      } else {
-        return `We dequeue ${node.label}. For each non-null child, we enqueue it. This preserves the invariant that the queue always stores exactly the frontier of the BFS. Current queue: [${lastAction.queueSnapshot
-          .map((id) => NODES_BY_ID[id]?.label ?? id)
-          .join(", ")}].`;
+        if (lastAction.added.length === 0)
+          return `Node ${node.label} has no children, so nothing new is added to the queue.`;
+        return `We visit node ${node.label}. Its children (${addedLabels}) are added to the queue.`;
       }
+
+      return `Visited ${node.label}. Frontier updated: [${lastAction.queueSnapshot
+        .map((id) => NODES_BY_ID[id]?.label)
+        .join(", ")}].`;
     }
 
     if (lastAction.kind === "done") {
       return mode === "beginner"
-        ? `The queue is empty and we’ve processed all levels. The maximum depth of this tree is ${lastAction.depth}.`
-        : `BFS terminated when the queue became empty. The variable depth now equals the number of levels in the tree: ${lastAction.depth}.`;
+        ? `Traversal completed — maximum depth is ${lastAction.depth}.`
+        : `BFS ended when queue emptied. Depth = ${lastAction.depth}.`;
     }
 
-    return "We are exploring the tree one level at a time.";
+    return "";
   }
 
   const depthPercent =
@@ -199,7 +187,6 @@ export default function MaxDepthBinaryTreePage() {
 
   return (
     <div className="min-h-screen bg-[#01020a] text-slate-50 flex flex-col items-center py-10 px-4 gap-8">
-      {/* Title */}
       <header className="flex flex-col items-center gap-3 text-center">
         <h1 className="text-4xl md:text-5xl font-semibold tracking-tight">
           <span className="text-cyan-400 drop-shadow-[0_0_18px_rgba(34,211,238,0.9)]">
@@ -211,15 +198,12 @@ export default function MaxDepthBinaryTreePage() {
           </span>
         </h1>
         <p className="text-sm text-slate-400 max-w-2xl">
-          Neon-style visualization of computing the height of a binary tree
-          using level-order (BFS) traversal.
+          Neon visualization of computing the height of a binary tree via BFS.
         </p>
       </header>
 
-      {/* Mode toggle */}
       <ModeToggleBT mode={mode} onChange={setMode} />
 
-      {/* Info pills */}
       <div className="flex flex-wrap items-center justify-center gap-3 text-xs mt-1">
         <div className="px-4 py-1 rounded-full border border-slate-700 bg-slate-900/70 font-mono">
           Nodes:{" "}
@@ -228,17 +212,14 @@ export default function MaxDepthBinaryTreePage() {
           </span>
         </div>
         <div className="px-4 py-1 rounded-full border border-slate-700 bg-slate-900/70 font-mono">
-          Current depth:{" "}
-          <span className="text-emerald-300">{depth}</span>
+          Current depth: <span className="text-emerald-300">{depth}</span>
         </div>
         <div className="px-4 py-1 rounded-full border border-slate-700 bg-slate-900/70 font-mono">
           Queue:{" "}
           <span className="text-violet-300">
             {queue.length === 0
               ? "∅"
-              : queue
-                  .map((id) => NODES_BY_ID[id]?.label ?? id)
-                  .join(" , ")}
+              : queue.map((id) => NODES_BY_ID[id]?.label).join(", ")}
           </span>
         </div>
         <div
@@ -259,7 +240,6 @@ export default function MaxDepthBinaryTreePage() {
         </div>
       </div>
 
-      {/* Depth ladder */}
       <div className="w-full max-w-4xl flex items-center gap-3 mt-2">
         <div className="flex flex-col items-center w-16">
           <span className="text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-1">
@@ -271,40 +251,23 @@ export default function MaxDepthBinaryTreePage() {
               style={{ height: `${depthPercent * 100}%` }}
             />
           </div>
-          <span className="mt-1 text-xs font-mono text-emerald-300">
-            {depth}
-          </span>
+          <span className="mt-1 text-xs font-mono text-emerald-300">{depth}</span>
         </div>
 
-        {/* Main neon tree + panels */}
         <div className="flex-1 flex flex-col gap-5">
-          {/* Tree view */}
-          <TreeView
-            currentId={currentId}
-            queue={queue}
-            visited={visited}
-            mode={mode}
-          />
+          <TreeView currentId={currentId} queue={queue} visited={visited} mode={mode} />
 
-          {/* Explanation banner */}
           <div className="bg-[#050816] border border-slate-800/80 rounded-2xl px-6 py-4 text-sm text-slate-200 shadow-[0_0_40px_rgba(15,23,42,0.95)]">
             {explanation()}
           </div>
 
-          {/* Bottom panels: stats + code */}
           <section className="grid grid-cols-1 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1.2fr)] gap-4">
-            <StatsPanelBT
-              depth={depth}
-              queue={queue}
-              currentId={currentId}
-              mode={mode}
-            />
+            <StatsPanelBT depth={depth} queue={queue} currentId={currentId} mode={mode} />
             <CodePanelBT activeLine={activeCodeLine()} mode={mode} />
           </section>
         </div>
       </div>
 
-      {/* Controls */}
       <div className="flex gap-4 mt-4">
         <button
           onClick={step}
@@ -313,12 +276,12 @@ export default function MaxDepthBinaryTreePage() {
                      bg-gradient-to-r from-cyan-500 via-sky-400 to-emerald-400
                      text-slate-950
                      hover:shadow-[0_0_32px_rgba(56,189,248,0.9)]
-                     disabled:from-slate-700 disabled:via-slate-700 disabled:to-slate-700
-                     disabled:text-slate-300
+                     disabled:bg-slate-700 disabled:text-slate-300
                      transition-all duration-200"
         >
           {status === "done" ? "Completed ✅" : "Step →"}
         </button>
+
         <button
           onClick={reset}
           className="px-7 py-2 rounded-xl text-sm font-medium
