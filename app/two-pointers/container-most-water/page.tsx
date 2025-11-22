@@ -1,12 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import ModeToggleCW, {
-  ModeCW,
-} from "@/components/two-pointers/container-most-water/ModeToggleCW";
-import WaterChart from "@/components/two-pointers/container-most-water/WaterChart";
-import StatsPanel from "@/components/two-pointers/container-most-water/StatsPanel";
-import CodePanel from "@/components/two-pointers/container-most-water/CodePanel";
+
+// Correct Mode Toggle Import
+import ModeToggleCW, { ModeCW } 
+  from "@/components/two-pointers/container-most-water/ModeToggleCW";
+
+// Correct component imports
+import WaterChart 
+  from "@/components/two-pointers/container-most-water/WaterChart";
+import StatsPanel 
+  from "@/components/two-pointers/container-most-water/StatsPanel";
+import CodePanel 
+  from "@/components/two-pointers/container-most-water/CodePanel";
 
 const HEIGHTS = [1, 8, 6, 2, 5, 4, 8, 3, 7];
 
