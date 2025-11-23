@@ -3,10 +3,24 @@
 import { useState } from "react";
 import ModeToggleBS, {
   ModeBS,
-} from "@/components/binary-search/search-insert-position/ModeToggleBS";
-import BarView from "@/components/binary-search/search-insert-position/BarView";
-import StatsPanelBS from "@/components/binary-search/search-insert-position/StatsPanelBS";
-import CodePanelBS from "@/components/binary-search/search-insert-position/CodePanelBS";
+} 
+"use client";
+
+import { useState } from "react";
+
+import ModeToggleBS, { ModeBS } 
+  from "@/components/binary-search/search-insert-position/ModeToggleBS";
+
+import BarView 
+  from "@/components/binary-search/search-insert-position/BarView";
+
+import StatsPanelBS 
+  from "@/components/binary-search/search-insert-position/StatsPanelBS";
+
+import CodePanelBS 
+  from "@/components/binary-search/search-insert-position/CodePanelBS";
+
+
 
 const NUMS = [1, 3, 5, 6];
 const TARGET = 2; // classic example from LeetCode
