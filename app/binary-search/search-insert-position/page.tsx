@@ -1,12 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import ModeToggleBS, {
-  ModeBS,
-} 
-"use client";
-
-import { useState } from "react";
 
 import ModeToggleBS, { ModeBS } 
   from "@/components/binary-search/search-insert-position/ModeToggleBS";
@@ -19,6 +13,7 @@ import StatsPanelBS
 
 import CodePanelBS 
   from "@/components/binary-search/search-insert-position/CodePanelBS";
+
 
 
 
