@@ -1,41 +1,36 @@
 "use client";
 
-export type ModeMSA = "beginner" | "expert";
+import React from "react";
 
-interface ModeToggleProps {
-  mode: ModeMSA;
-  onChange: (m: ModeMSA) => void;
+export type ModeM2 = "beginner" | "expert";
+
+interface ModeToggleM2Props {
+  mode: ModeM2;
+  onChange: (mode: ModeM2) => void;
 }
 
-export default function ModeToggleMSA({ mode, onChange }: ModeToggleProps) {
+export default function ModeToggleM2({ mode, onChange }: ModeToggleM2Props) {
   return (
-    <div className="flex items-center gap-3 mt-2">
+    <div className="inline-flex items-center rounded-full bg-slate-900/80 border border-slate-700 px-1 py-1 shadow-sm">
       <button
+        type="button"
         onClick={() => onChange("beginner")}
-        className={`
-          px-4 py-1 rounded-xl text-xs font-medium transition-all
-          border 
-          ${
-            mode === "beginner"
-              ? "bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_18px_rgba(34,211,238,0.6)]"
-              : "bg-slate-900/60 border-slate-700 text-slate-400 hover:border-cyan-500"
-          }
-        `}
+        className={`px-3 py-1 text-xs md:text-sm rounded-full transition-all ${
+          mode === "beginner"
+            ? "bg-sky-100 text-slate-900 font-semibold shadow-sm"
+            : "text-slate-300 hover:text-white hover:bg-slate-800/80"
+        }`}
       >
         Beginner
       </button>
-
       <button
+        type="button"
         onClick={() => onChange("expert")}
-        className={`
-          px-4 py-1 rounded-xl text-xs font-medium transition-all
-          border 
-          ${
-            mode === "expert"
-              ? "bg-fuchsia-500/20 border-fuchsia-400 text-fuchsia-300 shadow-[0_0_18px_rgba(236,72,153,0.6)]"
-              : "bg-slate-900/60 border-slate-700 text-slate-400 hover:border-fuchsia-500"
-          }
-        `}
+        className={`px-3 py-1 text-xs md:text-sm rounded-full transition-all ${
+          mode === "expert"
+            ? "bg-amber-100 text-slate-900 font-semibold shadow-sm"
+            : "text-slate-300 hover:text-white hover:bg-slate-800/80"
+        }`}
       >
         Expert
       </button>
