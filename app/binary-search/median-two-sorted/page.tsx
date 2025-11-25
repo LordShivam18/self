@@ -1,87 +1,64 @@
 "use client";
 
 import { useState } from "react";
-import ModeToggleMSA, {
-  ModeMSA,
-} from "@/components/binary-search/median-of-two-sorted-arrays/ModeToggleMSA";
-import PartitionViewMSA from "@/components/binary-search/median-of-two-sorted-arrays/PartitionViewMSA";
-import StatsPanelMSA from "@/components/binary-search/median-of-two-sorted-arrays/StatsPanelMSA";
-import CodePanelMSA from "@/components/binary-search/median-of-two-sorted-arrays/CodePanelMSA";
+import ModeToggleM2, { ModeM2 } from "@/components/binary-search/median-two-sorted/ModeToggleM2";
+import ArrayBar from "@/components/binary-search/median-two-sorted/ArrayBar";
+import PartitionView from "@/components/binary-search/median-two-sorted/PartitionView";
+import StatsPanelM2 from "@/components/binary-search/median-two-sorted/StatsPanelM2";
+import CodePanelM2 from "@/components/binary-search/median-two-sorted/CodePanelM2";
+import StoryTabs from "@/components/binary-search/median-two-sorted/StoryTabs";
 
-/**
- * We assume numsA is the smaller array – this is the one we binary-search on.
- * You can tweak the values to match your favourite LeetCode example.
- */
-const NUMS_A = [1, 3, 8];
-const NUMS_B = [7, 9, 10, 11];
+const NUMS1 = [1, 3, 8];
+const NUMS2 = [7, 9, 10, 11];
+// NUMS1 is shorter on purpose
 
-const M = NUMS_A.length;
-const N = NUMS_B.length;
-const TOTAL = M + N;
-const IS_EVEN = TOTAL % 2 === 0;
+type Status = "ready" | "processing" | "done";
 
-type Status = "ready" | "running" | "done";
+type Relation = "balanced" | "move-left" | "move-right" | "none";
 
 type LastAction =
   | {
-      kind: "start";
+      kind: "iteration";
+      relation: Relation;
+      i: number;
+      j: number;
       low: number;
       high: number;
-    }
-  | {
-      kind: "move-left";
-      partitionA: number;
-      partitionB: number;
-      reason: "maxLeftA > minRightB";
-    }
-  | {
-      kind: "move-right";
-      partitionA: number;
-      partitionB: number;
-      reason: "maxLeftB > minRightA";
-    }
-  | {
-      kind: "found";
-      partitionA: number;
-      partitionB: number;
-      leftMax: number;
-      rightMin: number;
-      median: number;
+      median?: number;
     }
   | null;
 
-export default function MedianTwoSortedArraysPage() {
-  const [mode, setMode] = useState<ModeMSA>("beginner");
+type Stage =
+  | "intro"
+  | "search"
+  | "adjust-left"
+  | "adjust-right"
+  | "balanced"
+  | "done";
+
+const m = NUMS1.length;
+const n = NUMS2.length;
+const HALF = Math.floor((m + n + 1) / 2);
+
+export default function MedianTwoSortedPage() {
   const [status, setStatus] = useState<Status>("ready");
+  const [mode, setMode] = useState<ModeM2>("beginner");
 
-  // binary-search window on NUMS_A
   const [low, setLow] = useState(0);
-  const [high, setHigh] = useState(M);
+  const [high, setHigh] = useState(m);
 
-  // current partition positions
-  const [partitionA, setPartitionA] = useState<number | null>(null);
-  const [partitionB, setPartitionB] = useState<number | null>(null);
-
-  // boundary values around the partitions
-  const [maxLeftA, setMaxLeftA] = useState<number | null>(null);
-  const [minRightA, setMinRightA] = useState<number | null>(null);
-  const [maxLeftB, setMaxLeftB] = useState<number | null>(null);
-  const [minRightB, setMinRightB] = useState<number | null>(null);
-
+  const [i, setI] = useState<number | null>(null);
+  const [j, setJ] = useState<number | null>(null);
   const [median, setMedian] = useState<number | null>(null);
   const [lastAction, setLastAction] = useState<LastAction>(null);
 
   function reset() {
-    setMode("beginner");
     setStatus("ready");
+    setMode((prev) => prev); // keep mode
     setLow(0);
-    setHigh(M);
-    setPartitionA(null);
-    setPartitionB(null);
-    setMaxLeftA(null);
-    setMinRightA(null);
-    setMaxLeftB(null);
-    setMinRightB(null);
+    setHigh(m);
+    setI(null);
+    setJ(null);
     setMedian(null);
     setLastAction(null);
   }
@@ -89,270 +66,233 @@ export default function MedianTwoSortedArraysPage() {
   function step() {
     if (status === "done") return;
 
-    // First click moves us into running mode and performs the first partition step.
-    if (status === "ready") {
-      setStatus("running");
-      setLastAction({
-        kind: "start",
-        low,
-        high,
-      });
-    }
+    setStatus("processing");
 
-    // Use local copies to compute the next step
-    let nextLow = low;
-    let nextHigh = high;
+    const currentLow = low;
+    const currentHigh = high;
 
-    const partitionX = Math.floor((nextLow + nextHigh) / 2);
-    const partitionY = Math.floor((M + N + 1) / 2) - partitionX;
+    const cutI = Math.floor((currentLow + currentHigh) / 2);
+    const cutJ = HALF - cutI;
 
-    const maxLX =
-      partitionX === 0 ? Number.NEGATIVE_INFINITY : NUMS_A[partitionX - 1];
-    const minRX =
-      partitionX === M ? Number.POSITIVE_INFINITY : NUMS_A[partitionX];
+    const leftA =
+      cutI > 0 ? NUMS1[cutI - 1] : Number.NEGATIVE_INFINITY;
+    const rightA =
+      cutI < m ? NUMS1[cutI] : Number.POSITIVE_INFINITY;
 
-    const maxLY =
-      partitionY === 0 ? Number.NEGATIVE_INFINITY : NUMS_B[partitionY - 1];
-    const minRY =
-      partitionY === N ? Number.POSITIVE_INFINITY : NUMS_B[partitionY];
+    const leftB =
+      cutJ > 0 ? NUMS2[cutJ - 1] : Number.NEGATIVE_INFINITY;
+    const rightB =
+      cutJ < n ? NUMS2[cutJ] : Number.POSITIVE_INFINITY;
 
-    // push values into state so all panels/visuals see the same snapshot
-    setPartitionA(partitionX);
-    setPartitionB(partitionY);
-    setMaxLeftA(maxLX);
-    setMinRightA(minRX);
-    setMaxLeftB(maxLY);
-    setMinRightB(minRY);
+    setI(cutI);
+    setJ(cutJ);
 
-    const isValidPartition = maxLX <= minRY && maxLY <= minRX;
+    let relation: Relation = "none";
+    let newLow = currentLow;
+    let newHigh = currentHigh;
+    let newMedian: number | undefined = undefined;
 
-    if (isValidPartition) {
-      const leftMax = Math.max(maxLX, maxLY);
-      const rightMin = Math.min(minRX, minRY);
-      const med = IS_EVEN ? (leftMax + rightMin) / 2 : leftMax;
+    if (leftA <= rightB && leftB <= rightA) {
+      relation = "balanced";
 
-      setMedian(med);
+      const total = m + n;
+      if (total % 2 === 1) {
+        newMedian = Math.max(leftA, leftB);
+      } else {
+        newMedian =
+          (Math.max(leftA, leftB) + Math.min(rightA, rightB)) / 2;
+      }
+
+      setMedian(newMedian);
       setStatus("done");
-      setLastAction({
-        kind: "found",
-        partitionA: partitionX,
-        partitionB: partitionY,
-        leftMax,
-        rightMin,
-        median: med,
-      });
-      return;
-    }
-
-    // Need to move search window
-    if (maxLX > minRY) {
-      // Too far on right in A, go left
-      nextHigh = partitionX - 1;
-      setHigh(nextHigh);
-      setLow(nextLow);
-
-      setLastAction({
-        kind: "move-left",
-        partitionA: partitionX,
-        partitionB: partitionY,
-        reason: "maxLeftA > minRightB",
-      });
+    } else if (leftA > rightB) {
+      // i is too far right, move left
+      relation = "move-left";
+      newHigh = cutI - 1;
+      setHigh(newHigh);
     } else {
-      // Too far on left in A, go right
-      nextLow = partitionX + 1;
-      setLow(nextLow);
-      setHigh(nextHigh);
-
-      setLastAction({
-        kind: "move-right",
-        partitionA: partitionX,
-        partitionB: partitionY,
-        reason: "maxLeftB > minRightA",
-      });
+      // leftB > rightA -> i too small, move right
+      relation = "move-right";
+      newLow = cutI + 1;
+      setLow(newLow);
     }
+
+    setLastAction({
+      kind: "iteration",
+      relation,
+      i: cutI,
+      j: cutJ,
+      low: newLow,
+      high: newHigh,
+      median: newMedian,
+    });
   }
 
   function activeCodeLine(): number {
-    if (status === "ready") return 5; // low = 0, high = m;
-
-    if (!lastAction) return 9; // while (low <= high)
-
-    switch (lastAction.kind) {
-      case "start":
-        return 9; // while loop / first iteration
-      case "move-left":
-        return 18; // high = partitionX - 1;
-      case "move-right":
-        return 20; // low = partitionX + 1;
-      case "found":
-        return IS_EVEN ? 23 : 22; // median computation lines
-      default:
-        return 9;
+    if (!lastAction || status === "ready") {
+      return 5; // while (low <= high)
     }
+
+    if (lastAction.relation === "balanced") {
+      // inside return block
+      return (m + n) % 2 === 1 ? 14 : 16;
+    }
+
+    if (lastAction.relation === "move-left") {
+      return 18;
+    }
+
+    if (lastAction.relation === "move-right") {
+      return 20;
+    }
+
+    return 6; // picking i, j
   }
 
   function explanation(): string {
     if (status === "ready") {
       return mode === "beginner"
-        ? "We have two sorted arrays. Instead of merging them, we’ll slice them with two vertical partitions so that everything on the left is half of the combined array and <= everything on the right."
-        : "We binary-search on the smaller array A. For a guess partitionX, we deduce partitionY so that left side has (m + n + 1) / 2 elements. We then check the invariant: maxLeftA ≤ minRightB and maxLeftB ≤ minRightA.";
+        ? "We’ll treat the two sorted arrays as if they can be sliced by two vertical cuts i and j. Our goal is to place the cuts so that the left side holds exactly half of the elements."
+        : "We run a binary search over i in the smaller array A. For each i we derive j so that i + j = (m + n + 1) / 2. A valid partition satisfies leftA ≤ rightB and leftB ≤ rightA; from there the median is determined in O(1).";
     }
 
     if (!lastAction) {
-      return "Click Step to move the partition and watch the invariant become true.";
+      return "Click Step again to move the partition and continue the search.";
     }
 
-    if (lastAction.kind === "start") {
+    const { relation, i, j } = lastAction;
+
+    if (relation === "balanced") {
       return mode === "beginner"
-        ? `We start binary search on array A. low = ${lastAction.low}, high = ${lastAction.high}. Each step will slide the cyan partition left or right.`
-        : `Initialize low = 0, high = m. Each iteration chooses partitionX = ⌊(low + high) / 2⌋ and partitionY so that the left side has (m + n + 1) / 2 elements.`;
+        ? `With i = ${i} and j = ${j}, everything on the left side is ≤ everything on the right. We can now read the median from the border values.`
+        : `The conditions leftA ≤ rightB and leftB ≤ rightA both hold. The partition is correct, so the median is max(leftA, leftB) for odd length, or the average with min(rightA, rightB) for even length.`;
     }
 
-    if (lastAction.kind === "move-left") {
-      const { partitionA, partitionB, reason } = lastAction;
+    if (relation === "move-left") {
       return mode === "beginner"
-        ? `Our slice in A was too far to the right (because ${reason}). We move high left: next time partitionX will slide left from ${partitionA}, and partitionY will slide right to keep the left side size correct.`
-        : `At partitionX = ${partitionA}, partitionY = ${partitionB}, we had ${reason}, so the invariant maxLeftA ≤ minRightB fails. We shrink the search window by setting high = partitionX − 1.`;
+        ? `At this step, a value from A’s left side is too big for B’s right side. That means i is too far to the right, so we move it left.`
+        : `We detected leftA > rightB. To restore order, we must decrease i, shrinking A’s contribution to the left partition. This halves the remaining search space.`;
     }
 
-    if (lastAction.kind === "move-right") {
-      const { partitionA, partitionB, reason } = lastAction;
+    if (relation === "move-right") {
       return mode === "beginner"
-        ? `Our slice in A was too far to the left (because ${reason}). We move low right: partitionX shifts right from ${partitionA}, and partitionY shifts left.`
-        : `At partitionX = ${partitionA}, partitionY = ${partitionB}, we had ${reason}, so we must move the cut in A to the right. Set low = partitionX + 1 to continue the binary search.`;
+        ? `Now a value from B’s left side is too big for A’s right side. That means we need more from A on the left side, so we move i to the right.`
+        : `We detected leftB > rightA. To make the left side smaller, we increase i so that more elements from A move to the left partition and fewer from B stay there.`;
     }
 
-    if (lastAction.kind === "found") {
-      const { leftMax, rightMin, median } = lastAction;
-      return mode === "beginner"
-        ? `Now the blue left side is exactly half of all elements and every value on the left (max = ${leftMax}) is ≤ every value on the right (min = ${rightMin}). That means the median of the two arrays is ${median}.`
-        : `We’ve found a valid partition: maxLeftA = ${maxLeftA}, maxLeftB = ${maxLeftB}, minRightA = ${minRightA}, minRightB = ${minRightB}. The median is ${IS_EVEN ? "(maxLeft + minRight) / 2" : "maxLeft"} = ${median}.`;
-    }
-
-    return "We’re sliding the partitions until the invariant holds and the median falls out naturally.";
+    return "We are trying a new pair of cuts (i, j) and checking whether the left and right sides are ordered correctly.";
   }
 
-  const isValidPartition =
-    maxLeftA != null &&
-    minRightA != null &&
-    maxLeftB != null &&
-    minRightB != null &&
-    maxLeftA <= minRightB &&
-    maxLeftB <= minRightA;
+  function stage(): Stage {
+    if (status === "ready") return "intro";
+    if (!lastAction) return "search";
+
+    if (status === "done" && lastAction.relation === "balanced") {
+      return "done";
+    }
+
+    switch (lastAction.relation) {
+      case "balanced":
+        return "balanced";
+      case "move-left":
+        return "adjust-left";
+      case "move-right":
+        return "adjust-right";
+      default:
+        return "search";
+    }
+  }
+
+  const currentRelation: Relation =
+    lastAction?.relation ?? (status === "ready" ? "none" : "none");
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#020617] via-[#050017] to-black text-slate-50 flex flex-col items-center py-10 px-4 gap-8">
-      {/* Header */}
+    <div className="min-h-screen bg-[#020617] text-slate-50 flex flex-col items-center py-10 px-4 gap-8">
+      {/* Title */}
       <header className="flex flex-col items-center gap-3 text-center max-w-3xl">
-        <div className="inline-flex items-center gap-2 rounded-full border border-fuchsia-500/40 bg-fuchsia-500/10 px-4 py-1 text-[11px] uppercase tracking-[0.2em] text-fuchsia-200">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.9)]" />
-          Flagship • Binary Search on Two Arrays
-        </div>
         <h1 className="text-4xl md:text-5xl font-semibold tracking-tight">
-          <span className="text-cyan-300 drop-shadow-[0_0_26px_rgba(34,211,238,0.9)]">
-            Median
-          </span>{" "}
-          of{" "}
-          <span className="text-fuchsia-300 drop-shadow-[0_0_26px_rgba(236,72,153,0.9)]">
-            Two Sorted Arrays
+          <span className="bg-gradient-to-r from-sky-300 via-emerald-300 to-amber-300 bg-clip-text text-transparent">
+            Median of Two Sorted Arrays
           </span>
         </h1>
-        <p className="text-sm md:text-base text-slate-400">
-          Watch a{" "}
-          <span className="text-cyan-300 font-medium">laser-thin partition</span>{" "}
-          slide across two arrays until the{" "}
-          <span className="text-emerald-300 font-medium">median</span> literally
-          appears at the boundary.
+        <p className="text-sm text-slate-400">
+          A flagship visualization of the classic hard problem. Follow the
+          moving partitions across two arrays and see how the median emerges
+          from a single clean binary search.
         </p>
       </header>
 
       {/* Mode toggle */}
-      <ModeToggleMSA mode={mode} onChange={setMode} />
+      <ModeToggleM2 mode={mode} onChange={setMode} />
 
-      {/* Info pills */}
-      <div className="flex flex-wrap items-center justify-center gap-3 text-[11px] md:text-xs mt-1">
-        <div className="px-4 py-1 rounded-full border border-slate-700/80 bg-slate-900/70 font-mono">
-          A ={" "}
-          <span className="text-cyan-300">
-            [{NUMS_A.join(", ")}]
-          </span>
+      {/* Info row */}
+      <div className="flex flex-wrap items-center justify-center gap-3 text-xs mt-2">
+        <div className="px-4 py-1 rounded-full border border-slate-700 bg-slate-900/70 font-mono">
+          A = <span className="text-sky-300">[{NUMS1.join(", ")}]</span>
         </div>
-        <div className="px-4 py-1 rounded-full border border-slate-700/80 bg-slate-900/70 font-mono">
-          B ={" "}
-          <span className="text-fuchsia-300">
-            [{NUMS_B.join(", ")}]
-          </span>
+        <div className="px-4 py-1 rounded-full border border-slate-700 bg-slate-900/70 font-mono">
+          B = <span className="text-rose-300">[{NUMS2.join(", ")}]</span>
         </div>
-        <div className="px-4 py-1 rounded-full border border-slate-700/80 bg-slate-900/70 font-mono">
-          total = {TOTAL}{" "}
-          <span className="text-slate-500">
-            ({IS_EVEN ? "even → avg of 2 middles" : "odd → single middle"})
-          </span>
+        <div className="px-4 py-1 rounded-full border border-slate-700 bg-slate-900/70 font-mono">
+          total length = <span className="text-slate-100">{m + n}</span>
         </div>
         <div
           className={`px-4 py-1 rounded-full border text-xs ${
             status === "done"
-              ? "border-emerald-500/70 text-emerald-300 bg-emerald-500/10"
-              : status === "running"
-              ? "border-cyan-500/70 text-cyan-300 bg-cyan-500/10"
-              : "border-slate-600 text-slate-300 bg-slate-900/70"
+              ? "border-emerald-500/60 text-emerald-300 bg-emerald-500/5"
+              : status === "processing"
+              ? "border-sky-500/60 text-sky-300 bg-sky-500/5"
+              : "border-slate-600 text-slate-300 bg-slate-900/60"
           }`}
         >
           Status:{" "}
           {status === "ready"
             ? "Ready"
-            : status === "running"
-            ? "Searching…"
+            : status === "processing"
+            ? "Searching"
             : "Done"}
-        </div>
-        <div className="px-4 py-1 rounded-full border border-amber-400/60 bg-amber-500/10 text-amber-200 text-[11px] md:text-xs font-mono">
-          median ={" "}
-          {median == null ? (
-            <span className="text-slate-500">?</span>
-          ) : (
-            <span className="font-semibold">{median}</span>
-          )}
         </div>
       </div>
 
-      {/* Main layout */}
-      <section className="w-full max-w-6xl flex flex-col gap-6 mt-3">
-        {/* Partition visualization */}
-        <PartitionViewMSA
-          numsA={NUMS_A}
-          numsB={NUMS_B}
-          partitionA={partitionA}
-          partitionB={partitionB}
-          maxLeftA={maxLeftA}
-          minRightA={minRightA}
-          maxLeftB={maxLeftB}
-          minRightB={minRightB}
-          isValid={isValidPartition}
-          status={status}
-          mode={mode}
-        />
+      {/* Main area */}
+      <section className="w-full max-w-6xl flex flex-col lg:flex-row gap-6 mt-3">
+        {/* Left: arrays + partition board */}
+        <div className="flex-1 flex flex-col gap-4">
+          <ArrayBar
+            nums1={NUMS1}
+            nums2={NUMS2}
+            i={i}
+            j={j}
+            status={status}
+          />
 
-        {/* Explanation banner */}
-        <div className="bg-[#050818]/90 backdrop-blur-sm border border-slate-800/80 rounded-2xl px-6 py-4 text-sm md:text-base text-slate-200 shadow-[0_0_40px_rgba(15,23,42,0.95)]">
-          {explanation()}
+          <PartitionView
+            nums1={NUMS1}
+            nums2={NUMS2}
+            i={i}
+            j={j}
+            relation={currentRelation}
+          />
+
+          <div className="bg-slate-950/80 border border-slate-800 rounded-2xl px-5 py-4 text-sm text-slate-200">
+            {explanation()}
+          </div>
         </div>
 
-        {/* Bottom panels: stats + code */}
-        <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1.05fr)_minmax(0,1.1fr)] gap-4">
-          <StatsPanelMSA
-            low={low}
-            high={high}
-            partitionA={partitionA}
-            partitionB={partitionB}
-            maxLeftA={maxLeftA}
-            minRightA={minRightA}
-            maxLeftB={maxLeftB}
-            minRightB={minRightB}
-            isValid={isValidPartition}
+        {/* Right: panels */}
+        <div className="flex-1 flex flex-col gap-4">
+          <StatsPanelM2
+            nums1={NUMS1}
+            nums2={NUMS2}
+            i={i}
+            j={j}
+            status={status}
             median={median}
+            relation={currentRelation}
             mode={mode}
           />
-          <CodePanelMSA activeLine={activeCodeLine()} mode={mode} />
+          <CodePanelM2 activeLine={activeCodeLine()} mode={mode} />
+          <StoryTabs mode={mode} stage={stage()} />
         </div>
       </section>
 
@@ -362,23 +302,19 @@ export default function MedianTwoSortedArraysPage() {
           onClick={step}
           disabled={status === "done"}
           className="px-7 py-2 rounded-xl text-sm font-medium
-                     bg-gradient-to-r from-cyan-500 via-emerald-400 to-fuchsia-500
-                     text-slate-950
-                     shadow-[0_0_24px_rgba(56,189,248,0.7)]
-                     hover:shadow-[0_0_38px_rgba(56,189,248,0.95)]
-                     disabled:from-slate-700 disabled:via-slate-700 disabled:to-slate-700
-                     disabled:text-slate-300
-                     transition-all duration-200"
+                     bg-slate-100 text-slate-900
+                     hover:bg-white
+                     disabled:bg-slate-700 disabled:text-slate-300
+                     shadow-sm transition-all"
         >
-          {status === "done" ? "Median found 🎉" : "Step →"}
+          {status === "done" ? "Completed ✅" : "Step →"}
         </button>
         <button
           onClick={reset}
           className="px-7 py-2 rounded-xl text-sm font-medium
-                     bg-slate-900/90 border border-slate-700
-                     hover:bg-slate-800 hover:border-fuchsia-500
-                     hover:shadow-[0_0_24px_rgba(217,70,239,0.6)]
-                     transition-all duration-200"
+                     bg-slate-900 border border-slate-600
+                     hover:bg-slate-800 hover:border-slate-400
+                     transition-all"
         >
           Reset
         </button>
