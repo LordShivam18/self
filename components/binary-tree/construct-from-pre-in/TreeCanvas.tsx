@@ -1,4 +1,3 @@
-// components/binary-tree/construct-from-pre-in/TreeCanvas.tsx
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
@@ -15,27 +14,22 @@ type NodeState = {
   targetY: number;
   visible: boolean;
   value: number;
+  glow: number; // <-- NEW glow intensity for pulse
 };
 
 type Props = {
   trace: TraceStep[];
   cursor: number;
-  nodeLayouts: NodeLayout[]; // <-- required prop
+  nodeLayouts: NodeLayout[];
   width?: number;
   height?: number;
 };
 
-function springStep(
-  current: number,
-  target: number,
-  velocity: number,
-  stiffness = 0.14,
-  damping = 0.82
-) {
+// spring helper
+function springStep(current: number, target: number, velocity: number, stiffness = 0.14, damping = 0.82) {
   const force = (target - current) * stiffness;
   velocity = (velocity + force) * damping;
-  const next = current + velocity;
-  return { next, velocity };
+  return { next: current + velocity, velocity };
 }
 
 export default function TreeCanvas({
@@ -48,55 +42,56 @@ export default function TreeCanvas({
   const [nodes, setNodes] = useState<Record<string, NodeState>>({});
   const raf = useRef<number | null>(null);
 
-  // 1) init nodes from layout (hidden)
+  // --- 1. Initialize nodes (hidden with 0 glow)
   useEffect(() => {
     const initial: Record<string, NodeState> = {};
     for (const n of nodeLayouts) {
       initial[n.id] = {
         x: n.x,
-        y: n.y + 40,
+        y: n.y,
         vx: 0,
         vy: 0,
         targetX: n.x,
         targetY: n.y,
         visible: false,
         value: n.value,
+        glow: 0, // start no glow
       };
     }
     setNodes(initial);
   }, [nodeLayouts]);
 
-  // 2) reveal node when trace references it
+  // --- 2. Reveal node with glow pulse
   useEffect(() => {
     const step = trace[cursor];
     if (!step) return;
+
     const nid = step.nodeId || step.nodeIdCreated || step.rootNodeId;
     if (!nid) return;
+
     setNodes((prev) => {
-      const clone = { ...prev };
-      if (clone[nid] && !clone[nid].visible) {
-        clone[nid] = {
-          ...clone[nid],
+      if (!prev[nid] || prev[nid].visible) return prev;
+
+      return {
+        ...prev,
+        [nid]: {
+          ...prev[nid],
           visible: true,
-          x: clone[nid].targetX,
-          y: clone[nid].targetY + 40,
-          vx: 0,
-          vy: 0,
-        };
-      }
-      return clone;
+          glow: 1.0, // full glow initially
+        },
+      };
     });
   }, [cursor, trace]);
 
-  // 3) spring animation loop with explicit cleanup function
+  // --- 3. Animation loop (position + glow animation)
   useEffect(() => {
-    // bail if nothing to animate
-    if (!nodeLayouts || Object.keys(nodes).length === 0) return;
+    if (Object.keys(nodes).length === 0) return;
 
     let cancelled = false;
 
     function tick() {
       if (cancelled) return;
+
       let changed = false;
       const next: Record<string, NodeState> = {};
 
@@ -107,11 +102,12 @@ export default function TreeCanvas({
           continue;
         }
 
-        const tx = layout.x;
-        const ty = layout.y;
+        // position springs
+        const sx = springStep(s.x, layout.x, s.vx);
+        const sy = springStep(s.y, layout.y, s.vy);
 
-        const sx = springStep(s.x, tx, s.vx);
-        const sy = springStep(s.y, ty, s.vy);
+        // glow gently fades out
+        const newGlow = s.visible ? Math.max(0, s.glow - 0.04) : 0;
 
         next[id] = {
           ...s,
@@ -119,9 +115,14 @@ export default function TreeCanvas({
           y: sy.next,
           vx: sx.velocity,
           vy: sy.velocity,
+          glow: newGlow,
         };
 
-        if (Math.abs(sx.next - tx) > 0.4 || Math.abs(sy.next - ty) > 0.4) {
+        if (
+          Math.abs(sx.next - layout.x) > 0.3 ||
+          Math.abs(sy.next - layout.y) > 0.3 ||
+          newGlow > 0
+        ) {
           changed = true;
         }
       }
@@ -131,26 +132,20 @@ export default function TreeCanvas({
     }
 
     raf.current = requestAnimationFrame(tick);
-
-    // EXPLICIT cleanup — returning a function that cancels RAF (no `&&` expression)
     return () => {
       cancelled = true;
-      if (raf.current !== null) {
-        cancelAnimationFrame(raf.current);
-        raf.current = null;
-      }
+      if (raf.current) cancelAnimationFrame(raf.current);
     };
-    // we intentionally depend on nodes + nodeLayouts
   }, [nodes, nodeLayouts]);
 
-  // 4) render edges using parentId (guarded)
+  // --- 4. Render edges
   function renderEdges() {
     return nodeLayouts.map((l) => {
       if (!l.parentId) return null;
       const parent = nodes[l.parentId];
       const child = nodes[l.id];
-      if (!parent || !child) return null;
-      if (!parent.visible || !child.visible) return null;
+      if (!parent || !child || !parent.visible || !child.visible) return null;
+
       return (
         <line
           key={l.id + "-edge"}
@@ -160,36 +155,47 @@ export default function TreeCanvas({
           y2={child.y}
           stroke="#38bdf8"
           strokeWidth={2}
-          strokeOpacity={0.35}
+          strokeOpacity={0.25}
         />
       );
     });
   }
 
+  // --- 5. Final UI
   return (
-    <div style={{ width, height }} className="relative overflow-visible">
+    <div
+      style={{ width, height }}
+      className="relative overflow-visible"
+    >
       <svg width={width} height={height} className="absolute inset-0 pointer-events-none">
         {renderEdges()}
       </svg>
 
-      {Object.entries(nodes).map(([id, s]) => (
-        <div
-          key={id}
-          style={{
-            position: "absolute",
-            left: s.x - 18,
-            top: s.y - 18,
-            width: 36,
-            height: 36,
-            transform: `scale(${s.visible ? 1 : 0.6})`,
-            transition: "transform 220ms ease",
-            zIndex: s.visible ? 20 : 10,
-          }}
-          className="flex items-center justify-center rounded-full border-2 border-cyan-400 bg-transparent"
-        >
-          <span className="text-xs font-mono text-cyan-200">{s.value}</span>
-        </div>
-      ))}
+      {Object.entries(nodes).map(([id, s]) => {
+        const glowStyle = {
+          boxShadow: `0 0 ${18 + s.glow * 20}px rgba(56,189,248,${0.35 + s.glow * 0.3})`,
+        };
+
+        return (
+          <div
+            key={id}
+            style={{
+              position: "absolute",
+              left: s.x - 18,
+              top: s.y - 18,
+              width: 36,
+              height: 36,
+              transform: `scale(${s.visible ? 1 : 0.6})`,
+              transition: "transform 250ms ease",
+              zIndex: s.visible ? 20 : 10,
+              ...glowStyle,
+            }}
+            className="flex items-center justify-center rounded-full border-2 border-cyan-400 bg-transparent"
+          >
+            <span className="text-xs font-mono text-cyan-200">{s.value}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }

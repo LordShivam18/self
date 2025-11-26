@@ -13,7 +13,7 @@ export default function BinaryTreeIndexPage() {
 
         <a
           className="text-cyan-400 underline hover:text-cyan-200"
-          href="/binary-tree/construct-tree"
+          href="/binary-tree/construct-from-pre-in"
         >
           Construct Tree (Preorder + Inorder)
         </a>
