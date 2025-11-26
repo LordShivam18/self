@@ -2,20 +2,20 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
-// 🔥 Corrected import paths (pointing to construct-tree)
-import TreeCanvas from "@/components/binary-tree/construct-tree/TreeCanvas";
-import PreorderBar from "@/components/binary-tree/construct-tree/PreorderBar";
-import InorderBar from "@/components/binary-tree/construct-tree/InorderBar";
-import RecursionStack from "@/components/binary-tree/construct-tree/RecursionStack";
-import TimeSlider from "@/components/binary-tree/construct-tree/TimeSlider";
-import CodePanel from "@/components/binary-tree/construct-tree/CodePanelCT";
-import ExplainButton from "@/components/binary-tree/construct-tree/ExplainButton";
+// Correct imports
+import TreeCanvas from "@/components/binary-tree/construct-from-pre-in/TreeCanvas";
+import PreorderBar from "@/components/binary-tree/construct-from-pre-in/PreorderBar";
+import InorderBar from "@/components/binary-tree/construct-from-pre-in/InorderBar";
+import RecursionStack from "@/components/binary-tree/construct-from-pre-in/RecursionStack";
+import TimeSlider from "@/components/binary-tree/construct-from-pre-in/TimeSlider";
+import CodePanel from "@/components/binary-tree/construct-from-pre-in/CodePanelCT";
+import ExplainButton from "@/components/binary-tree/construct-from-pre-in/ExplainButton";
 
-/**
- * Classic example
- * preorder = [3,9,20,15,7]
- * inorder  = [9,3,15,20,7]
- */
+import {
+  computeBarsLayout,
+  buildNodeLayouts,
+  NodeLayout,
+} from "@/components/binary-tree/construct-from-pre-in/layoutEngine";
 
 const PRE = [3, 9, 20, 15, 7];
 const IN = [9, 3, 15, 20, 7];
@@ -34,56 +34,44 @@ export default function Page() {
   const [cursor, setCursor] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [mode, setMode] = useState<"beginner" | "expert">("beginner");
+
+  const [nodeLayouts, setNodeLayouts] = useState<NodeLayout[]>([]);
   const timelineRef = useRef<TraceStep[]>([]);
 
-  // ---------------- Trace Builder (Simulation of Recursion) ----------------
+  // ---------------- Build Trace ----------------
   const buildTrace = useCallback(() => {
     const steps: TraceStep[] = [];
     const inorderIndexMap = new Map<number, number>();
-
     IN.forEach((v, i) => inorderIndexMap.set(v, i));
 
-    function build(preL: number, preR: number, inL: number, inR: number) {
+    function build(preL: number, preR: number, inL: number, inR: number, depth = 0) {
       if (preL > preR || inL > inR) {
-        steps.push({
-          type: "empty-range",
-          preIndex: preL,
-          inRange: [inL, inR],
-        });
+        steps.push({ type: "empty-range", preIndex: preL, inRange: [inL, inR] });
         return null;
       }
 
       const rootVal = PRE[preL];
       const rootInIdx = inorderIndexMap.get(rootVal)!;
+      const nodeId = `node-${rootVal}-${preL}`;
 
       steps.push({
         type: "pick-root",
         preIndex: preL,
         rootInIndex: rootInIdx,
         inRange: [inL, inR],
-        nodeId: `node-${rootVal}-${preL}`,
+        nodeId,
+        snapshot: { depth, rootVal },
       });
 
       const leftSize = rootInIdx - inL;
 
-      steps.push({
-        type: "recurse-left",
-        snapshot: { root: rootVal, leftSize },
-      });
+      steps.push({ type: "recurse-left", snapshot: { root: rootVal, leftSize } });
+      build(preL + 1, preL + leftSize, inL, rootInIdx - 1, depth + 1);
 
-      build(preL + 1, preL + leftSize, inL, rootInIdx - 1);
+      steps.push({ type: "recurse-right", snapshot: { root: rootVal } });
+      build(preL + leftSize + 1, preR, rootInIdx + 1, inR, depth + 1);
 
-      steps.push({
-        type: "recurse-right",
-        snapshot: { root: rootVal },
-      });
-
-      build(preL + leftSize + 1, preR, rootInIdx + 1, inR);
-
-      steps.push({
-        type: "backtrack",
-        nodeId: `node-${rootVal}-${preL}`,
-      });
+      steps.push({ type: "backtrack", nodeId });
 
       return null;
     }
@@ -99,7 +87,7 @@ export default function Page() {
     buildTrace();
   }, [buildTrace]);
 
-  // ---------------- Animation / Auto-play ----------------
+  // ---------------- Animation Loop ----------------
   useEffect(() => {
     if (!playing) return;
 
@@ -114,8 +102,47 @@ export default function Page() {
     return () => clearInterval(id);
   }, [playing, trace.length]);
 
-  // -------------------------------------------------------------------------
+  // ---------------- Node Layout Builder ----------------
+  useEffect(() => {
+    if (trace.length === 0) return;
 
+    const nodesFound: {
+      id: string;
+      value: number;
+      preorderIndex: number;
+      inorderIndex: number;
+      depth: number;
+    }[] = [];
+
+    for (const step of trace) {
+      if (!step.nodeId) continue;
+
+      const parts = step.nodeId.split("-");
+      const val = Number(parts[1]);
+      const preIndex = Number(parts[2]);
+      const depth = step.snapshot?.depth ?? 0;
+
+      const inIndex = IN.indexOf(val);
+
+      nodesFound.push({
+        id: step.nodeId,
+        value: val,
+        preorderIndex: preIndex,
+        inorderIndex: inIndex,
+        depth,
+      });
+    }
+
+    // Remove duplicates
+    const unique = Array.from(new Map(nodesFound.map(n => [n.id, n])).values());
+
+    const bars = computeBarsLayout(940, PRE.length);
+    const layouts = buildNodeLayouts(unique, bars);
+
+    setNodeLayouts(layouts);
+  }, [trace]);
+
+  // ---------------- Render ----------------
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#06060a] to-[#04040b] text-slate-50 p-6">
       <header className="max-w-6xl mx-auto mb-6">
@@ -172,8 +199,7 @@ export default function Page() {
             <div className="flex flex-col gap-3">
               <PreorderBar pre={PRE} cursor={cursor} trace={trace} />
               <InorderBar ino={IN} cursor={cursor} trace={trace} />
-
-              <TreeCanvas trace={trace} cursor={cursor} />
+              <TreeCanvas trace={trace} cursor={cursor} nodeLayouts={nodeLayouts} />
             </div>
           </div>
 
