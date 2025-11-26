@@ -1,16 +1,18 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import TreeCanvas from "@/components/binary-tree/TreeCanvas";
-import PreorderBar from "@/components/binary-tree/PreorderBar";
-import InorderBar from "@/components/binary-tree/InorderBar";
-import RecursionStack from "@/components/binary-tree/RecursionStack";
-import TimeSlider from "@/components/binary-tree/TimeSlider";
-import CodePanel from "@/components/binary-tree/CodePanel";
-import ExplainButton from "@/components/binary-tree/ExplainButton";
+
+// 🔥 Corrected import paths (pointing to construct-tree)
+import TreeCanvas from "@/components/binary-tree/construct-tree/TreeCanvas";
+import PreorderBar from "@/components/binary-tree/construct-tree/PreorderBar";
+import InorderBar from "@/components/binary-tree/construct-tree/InorderBar";
+import RecursionStack from "@/components/binary-tree/construct-tree/RecursionStack";
+import TimeSlider from "@/components/binary-tree/construct-tree/TimeSlider";
+import CodePanel from "@/components/binary-tree/construct-tree/CodePanelCT";
+import ExplainButton from "@/components/binary-tree/construct-tree/ExplainButton";
 
 /**
- * Example inputs (classic)
+ * Classic example
  * preorder = [3,9,20,15,7]
  * inorder  = [9,3,15,20,7]
  */
@@ -19,7 +21,6 @@ const PRE = [3, 9, 20, 15, 7];
 const IN = [9, 3, 15, 20, 7];
 
 type TraceStep = {
-  // minimal trace description for a step (expandable)
   type: string;
   preIndex?: number;
   inRange?: [number, number];
@@ -30,52 +31,65 @@ type TraceStep = {
 
 export default function Page() {
   const [trace, setTrace] = useState<TraceStep[]>([]);
-  const [cursor, setCursor] = useState(0); // current frame index
+  const [cursor, setCursor] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [mode, setMode] = useState<"beginner" | "expert">("beginner");
   const timelineRef = useRef<TraceStep[]>([]);
 
-  // ---------- A minimal simulator that records trace steps ----------
+  // ---------------- Trace Builder (Simulation of Recursion) ----------------
   const buildTrace = useCallback(() => {
-    // This is a simple synchronous tracer that records steps for visualization.
-    // For a full system you might instrument your actual recursive function.
     const steps: TraceStep[] = [];
     const inorderIndexMap = new Map<number, number>();
+
     IN.forEach((v, i) => inorderIndexMap.set(v, i));
 
     function build(preL: number, preR: number, inL: number, inR: number) {
       if (preL > preR || inL > inR) {
-        steps.push({ type: "empty-range", preIndex: preL, inRange: [inL, inR] });
+        steps.push({
+          type: "empty-range",
+          preIndex: preL,
+          inRange: [inL, inR],
+        });
         return null;
       }
 
       const rootVal = PRE[preL];
-      const rootIn = inorderIndexMap.get(rootVal)!;
+      const rootInIdx = inorderIndexMap.get(rootVal)!;
 
-      // RECORD: choosing root from preorder
       steps.push({
         type: "pick-root",
         preIndex: preL,
-        rootInIndex: rootIn,
+        rootInIndex: rootInIdx,
         inRange: [inL, inR],
         nodeId: `node-${rootVal}-${preL}`,
       });
 
-      // Recurse left
-      const leftSize = rootIn - inL;
-      steps.push({ type: "recurse-left", snapshot: { root: rootVal, leftSize } });
-      build(preL + 1, preL + leftSize, inL, rootIn - 1);
+      const leftSize = rootInIdx - inL;
 
-      // Recurse right
-      steps.push({ type: "recurse-right", snapshot: { root: rootVal } });
-      build(preL + leftSize + 1, preR, rootIn + 1, inR);
+      steps.push({
+        type: "recurse-left",
+        snapshot: { root: rootVal, leftSize },
+      });
 
-      // Backtrack
-      steps.push({ type: "backtrack", nodeId: `node-${rootVal}-${preL}` });
+      build(preL + 1, preL + leftSize, inL, rootInIdx - 1);
+
+      steps.push({
+        type: "recurse-right",
+        snapshot: { root: rootVal },
+      });
+
+      build(preL + leftSize + 1, preR, rootInIdx + 1, inR);
+
+      steps.push({
+        type: "backtrack",
+        nodeId: `node-${rootVal}-${preL}`,
+      });
+
       return null;
     }
 
     build(0, PRE.length - 1, 0, IN.length - 1);
+
     setTrace(steps);
     timelineRef.current = steps;
     setCursor(0);
@@ -85,18 +99,22 @@ export default function Page() {
     buildTrace();
   }, [buildTrace]);
 
-  // play animation
+  // ---------------- Animation / Auto-play ----------------
   useEffect(() => {
     if (!playing) return;
+
     const id = setInterval(() => {
-      setCursor((c) => {
-        const next = Math.min(c + 1, trace.length - 1);
+      setCursor((prev) => {
+        const next = Math.min(prev + 1, trace.length - 1);
         if (next === trace.length - 1) setPlaying(false);
         return next;
       });
     }, 700);
+
     return () => clearInterval(id);
   }, [playing, trace.length]);
+
+  // -------------------------------------------------------------------------
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#06060a] to-[#04040b] text-slate-50 p-6">
@@ -105,8 +123,9 @@ export default function Page() {
           Construct Binary Tree from Preorder & Inorder
         </h1>
         <p className="text-slate-300 mt-2 max-w-2xl">
-          Legendary flagship visualizer — time travel, recursion stack, pointer
-          movement, live code highlighting and an AI explain button.
+          Ultra-flagship visualizer — recursion unrolled, pointer motion,
+          animated array partitions, dynamic tree building, time-travel slider
+          and AI-powered explanations.
         </p>
       </header>
 
@@ -121,20 +140,24 @@ export default function Page() {
                 >
                   {playing ? "Pause" : "Play"}
                 </button>
+
                 <button
                   onClick={() => {
                     setCursor(0);
                     setPlaying(false);
                   }}
-                  className="px-3 py-2 rounded-md bg-slate-800 border"
+                  className="px-3 py-2 rounded-md bg-slate-800 border border-slate-600"
                 >
                   Reset
                 </button>
+
                 <div className="ml-4">
                   <label className="text-sm text-slate-400 mr-2">Mode</label>
                   <select
                     value={mode}
-                    onChange={(e) => setMode(e.target.value as any)}
+                    onChange={(e) =>
+                      setMode(e.target.value as "beginner" | "expert")
+                    }
                     className="bg-slate-900 border border-slate-700 rounded-md px-2 py-1 text-sm"
                   >
                     <option value="beginner">Beginner</option>
@@ -149,7 +172,7 @@ export default function Page() {
             <div className="flex flex-col gap-3">
               <PreorderBar pre={PRE} cursor={cursor} trace={trace} />
               <InorderBar ino={IN} cursor={cursor} trace={trace} />
-              {/* The main animated tree canvas */}
+
               <TreeCanvas trace={trace} cursor={cursor} />
             </div>
           </div>
@@ -157,7 +180,7 @@ export default function Page() {
           <TimeSlider
             length={trace.length}
             value={cursor}
-            onChange={(v) => {
+            onChange={(v: number) => {
               setCursor(v);
               setPlaying(false);
             }}
