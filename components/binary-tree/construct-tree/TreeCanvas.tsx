@@ -1,121 +1,130 @@
-"use client";
-import React, { useMemo } from "react";
+import React, { useEffect, useRef } from "react";
+import { gsap } from "gsap";
 
-/** Simple layout engine: produce x,y per node from parent references. */
-function layoutNodes(nodes: { id: string; value: number; parentId?: string; side?: "L" | "R" }[]) {
-  // Build adjacency tree (since trace creates parent references)
-  const byId: Record<string, { id: string; value: number; parentId?: string; side?: "L" | "R"; children: string[] }> = {};
-  nodes.forEach((n) => (byId[n.id] = { ...n, children: [] }));
-  nodes.forEach((n) => {
-    if (n.parentId && byId[n.parentId]) byId[n.parentId].children.push(n.id);
-  });
-
-  // find roots (nodes with no parent)
-  const roots = nodes.filter((n) => !n.parentId).map((r) => r.id);
-  // We'll place nodes by BFS level order with relative offsets for left/right
-  const placements: Record<string, { x: number; y: number }> = {};
-  if (roots.length === 0) return placements;
-
-  // naive layout: do a recursive layout using subtree widths
-  function subtreeWidth(id: string): number {
-    const node = byId[id];
-    if (!node) return 1;
-    if (node.children.length === 0) return 1;
-    return node.children.map(subtreeWidth).reduce((a, b) => a + b, 0);
-  }
-
-  function assign(id: string, left: number, top: number) {
-    const w = subtreeWidth(id);
-    const node = byId[id];
-    const center = left + w / 2;
-    placements[id] = { x: center * 140, y: top * 120 };
-    let cur = left;
-    for (const c of node.children) {
-      const cw = subtreeWidth(c);
-      assign(c, cur, top + 1);
-      cur += cw;
-    }
-  }
-
-  let start = 0;
-  for (const r of roots) {
-    const w = subtreeWidth(r);
-    assign(r, start, 0);
-    start += w;
-  }
-  return placements;
-}
+type TraceStep = any;
 
 export default function TreeCanvas({
-  nodes,
-  highlightPick,
+  trace,
+  cursor,
 }: {
-  nodes: { id: string; value: number; parentId?: string; side?: "L" | "R" }[];
-  highlightPick?: { value: number; preIndex: number; inorderIndex: number } | undefined;
+  trace: TraceStep[];
+  cursor: number;
 }) {
-  const placements = useMemo(() => layoutNodes(nodes), [nodes]);
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const nodesRef = useRef<Record<string, SVGElement>>({});
+
+  // A tiny layout engine: position nodes by preorder order and level (approx).
+  function computeLayoutFromTrace(steps: TraceStep[], upto: number) {
+    // We'll collect created nodes from pick-root steps in the order encountered.
+    const nodes: { id: string; val: string; depth: number }[] = [];
+    const stackDepths: number[] = [];
+
+    let depth = 0;
+    steps.slice(0, upto + 1).forEach((s) => {
+      if (s.type === "pick-root") {
+        nodes.push({ id: s.nodeId, val: String(s.nodeId), depth });
+        depth += 1;
+      } else if (s.type === "backtrack") {
+        depth = Math.max(0, depth - 1);
+      } else if (s.type === "recurse-left") {
+        // no-op
+      } else if (s.type === "recurse-right") {
+        // no-op
+      }
+    });
+
+    // Spread horizontally by order, depth gives vertical position
+    const width = 940;
+    const height = 320;
+    const gap = Math.max(60, width / Math.max(1, nodes.length));
+    return nodes.map((n, i) => ({
+      ...n,
+      x: 40 + i * gap,
+      y: 40 + n.depth * 80,
+    }));
+  }
+
+  useEffect(() => {
+    // Compute layout up to cursor
+    const layout = computeLayoutFromTrace(trace, cursor);
+    const svg = svgRef.current!;
+    if (!svg) return;
+
+    // Create/animate nodes
+    layout.forEach((node) => {
+      let g = document.getElementById(node.id) as SVGGElement | null;
+      if (!g) {
+        // create group
+        const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        group.setAttribute("id", node.id);
+        group.setAttribute("transform", `translate(${node.x}, ${node.y})`);
+        group.style.opacity = "0";
+
+        // circle
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("r", "18");
+        circle.setAttribute("fill", "#061029");
+        circle.setAttribute("stroke", "url(#grad1)");
+        circle.setAttribute("stroke-width", "2");
+        circle.setAttribute("class", "node-circle");
+
+        // label
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("fill", "#bfefff");
+        text.setAttribute("text-anchor", "middle");
+        text.setAttribute("alignment-baseline", "middle");
+        text.setAttribute("font-size", "12");
+        text.textContent = node.val.replace("node-", "").split("-")[0];
+
+        group.appendChild(circle);
+        group.appendChild(text);
+        svg.appendChild(group);
+        nodesRef.current[node.id] = group;
+
+        // animate pop-in
+        gsap.fromTo(
+          group,
+          { scale: 0.2, opacity: 0, transformOrigin: "center center" },
+          { scale: 1, opacity: 1, duration: 0.45, ease: "elastic.out(1,0.6)" }
+        );
+      } else {
+        // update position (tween)
+        gsap.to(g, { x: node.x, y: node.y, duration: 0.5, ease: "power2.out" });
+        g.setAttribute("transform", `translate(${node.x}, ${node.y})`);
+      }
+    });
+
+    // Remove nodes that are beyond current layout
+    const existing = Array.from(svg.querySelectorAll("g[id^='node-']"));
+    existing.forEach((g) => {
+      const id = g.id;
+      if (!layout.find((l) => l.id === id)) {
+        gsap.to(g, {
+          opacity: 0,
+          scale: 0.6,
+          duration: 0.35,
+          onComplete: () => {
+            try {
+              g.remove();
+            } catch {}
+          },
+        });
+      }
+    });
+  }, [trace, cursor]);
 
   return (
-    <div className="bg-gradient-to-b from-[#050616] to-[#020212] p-4 rounded-xl border border-slate-800 min-h-[300px]">
-      <svg width="100%" height="360">
-        {/* edges */}
-        {nodes.map((n) => {
-          const p = placements[n.id];
-          if (!p || !n.parentId) return null;
-          const parentP = placements[n.parentId];
-          if (!parentP) return null;
-          return (
-            <g key={`edge-${n.id}`}>
-              <line
-                x1={parentP.x + 40}
-                y1={parentP.y + 40}
-                x2={p.x + 40}
-                y2={p.y + 40}
-                stroke="#274155"
-                strokeWidth={2}
-                strokeOpacity={0.6}
-              />
-            </g>
-          );
-        })}
-
-        {/* nodes */}
-        {nodes.map((n, idx) => {
-          const p = placements[n.id];
-          if (!p) return null;
-          const isRoot = !n.parentId;
-          const isPicked = highlightPick && highlightPick.value === n.value;
-          return (
-            <g key={n.id} transform={`translate(${p.x}, ${p.y})`}>
-              <rect
-                x={0}
-                y={0}
-                width={80}
-                height={80}
-                rx={18}
-                ry={18}
-                fill={isPicked ? "url(#glow)" : "#081226"}
-                stroke={isPicked ? "#29d2ff" : "#173040"}
-                strokeWidth={isRoot ? 3 : 1.5}
-                style={{
-                  filter: isPicked ? "drop-shadow(0 8px 20px rgba(41,210,255,0.12))" : undefined,
-                }}
-              />
-              <text x={40} y={44} fontSize={22} fontWeight={700} textAnchor="middle" fill="#e6f7ff" style={{ pointerEvents: "none" }}>
-                {n.value}
-              </text>
-            </g>
-          );
-        })}
-
+    <div className="w-full bg-gradient-to-b from-[#020216]/40 to-transparent p-4 rounded-xl">
+      <svg ref={svgRef} className="w-full h-80" viewBox="0 0 1000 360">
         <defs>
-          <linearGradient id="glow" x1="0" x2="1">
-            <stop offset="0%" stopColor="#1ce0ff" stopOpacity="0.14" />
-            <stop offset="100%" stopColor="#9b7cff" stopOpacity="0.08" />
+          <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#4EE0F6" />
+            <stop offset="100%" stopColor="#8A6BFF" />
           </linearGradient>
         </defs>
+        {/* connecting edges could be drawn here later */}
       </svg>
-      <div className="mt-3 text-xs text-slate-400 font-mono">Nodes created: {nodes.length}</div>
+      <div className="mt-2 text-slate-400 text-sm">Tree growth canvas — animated nodes</div>
     </div>
   );
 }
