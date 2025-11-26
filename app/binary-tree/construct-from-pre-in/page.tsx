@@ -1,0 +1,181 @@
+"use client";
+
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import TreeCanvas from "@/components/binary-tree/TreeCanvas";
+import PreorderBar from "@/components/binary-tree/PreorderBar";
+import InorderBar from "@/components/binary-tree/InorderBar";
+import RecursionStack from "@/components/binary-tree/RecursionStack";
+import TimeSlider from "@/components/binary-tree/TimeSlider";
+import CodePanel from "@/components/binary-tree/CodePanel";
+import ExplainButton from "@/components/binary-tree/ExplainButton";
+
+/**
+ * Example inputs (classic)
+ * preorder = [3,9,20,15,7]
+ * inorder  = [9,3,15,20,7]
+ */
+
+const PRE = [3, 9, 20, 15, 7];
+const IN = [9, 3, 15, 20, 7];
+
+type TraceStep = {
+  // minimal trace description for a step (expandable)
+  type: string;
+  preIndex?: number;
+  inRange?: [number, number];
+  rootInIndex?: number;
+  nodeId?: string;
+  snapshot?: any;
+};
+
+export default function Page() {
+  const [trace, setTrace] = useState<TraceStep[]>([]);
+  const [cursor, setCursor] = useState(0); // current frame index
+  const [playing, setPlaying] = useState(false);
+  const [mode, setMode] = useState<"beginner" | "expert">("beginner");
+  const timelineRef = useRef<TraceStep[]>([]);
+
+  // ---------- A minimal simulator that records trace steps ----------
+  const buildTrace = useCallback(() => {
+    // This is a simple synchronous tracer that records steps for visualization.
+    // For a full system you might instrument your actual recursive function.
+    const steps: TraceStep[] = [];
+    const inorderIndexMap = new Map<number, number>();
+    IN.forEach((v, i) => inorderIndexMap.set(v, i));
+
+    function build(preL: number, preR: number, inL: number, inR: number) {
+      if (preL > preR || inL > inR) {
+        steps.push({ type: "empty-range", preIndex: preL, inRange: [inL, inR] });
+        return null;
+      }
+
+      const rootVal = PRE[preL];
+      const rootIn = inorderIndexMap.get(rootVal)!;
+
+      // RECORD: choosing root from preorder
+      steps.push({
+        type: "pick-root",
+        preIndex: preL,
+        rootInIndex: rootIn,
+        inRange: [inL, inR],
+        nodeId: `node-${rootVal}-${preL}`,
+      });
+
+      // Recurse left
+      const leftSize = rootIn - inL;
+      steps.push({ type: "recurse-left", snapshot: { root: rootVal, leftSize } });
+      build(preL + 1, preL + leftSize, inL, rootIn - 1);
+
+      // Recurse right
+      steps.push({ type: "recurse-right", snapshot: { root: rootVal } });
+      build(preL + leftSize + 1, preR, rootIn + 1, inR);
+
+      // Backtrack
+      steps.push({ type: "backtrack", nodeId: `node-${rootVal}-${preL}` });
+      return null;
+    }
+
+    build(0, PRE.length - 1, 0, IN.length - 1);
+    setTrace(steps);
+    timelineRef.current = steps;
+    setCursor(0);
+  }, []);
+
+  useEffect(() => {
+    buildTrace();
+  }, [buildTrace]);
+
+  // play animation
+  useEffect(() => {
+    if (!playing) return;
+    const id = setInterval(() => {
+      setCursor((c) => {
+        const next = Math.min(c + 1, trace.length - 1);
+        if (next === trace.length - 1) setPlaying(false);
+        return next;
+      });
+    }, 700);
+    return () => clearInterval(id);
+  }, [playing, trace.length]);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-[#06060a] to-[#04040b] text-slate-50 p-6">
+      <header className="max-w-6xl mx-auto mb-6">
+        <h1 className="text-4xl font-extrabold">
+          Construct Binary Tree from Preorder & Inorder
+        </h1>
+        <p className="text-slate-300 mt-2 max-w-2xl">
+          Legendary flagship visualizer — time travel, recursion stack, pointer
+          movement, live code highlighting and an AI explain button.
+        </p>
+      </header>
+
+      <main className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6">
+        <section className="space-y-4">
+          <div className="bg-[#050817] border border-slate-800 rounded-2xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setPlaying((p) => !p)}
+                  className="px-4 py-2 rounded-xl bg-cyan-500/10 border border-cyan-500"
+                >
+                  {playing ? "Pause" : "Play"}
+                </button>
+                <button
+                  onClick={() => {
+                    setCursor(0);
+                    setPlaying(false);
+                  }}
+                  className="px-3 py-2 rounded-md bg-slate-800 border"
+                >
+                  Reset
+                </button>
+                <div className="ml-4">
+                  <label className="text-sm text-slate-400 mr-2">Mode</label>
+                  <select
+                    value={mode}
+                    onChange={(e) => setMode(e.target.value as any)}
+                    className="bg-slate-900 border border-slate-700 rounded-md px-2 py-1 text-sm"
+                  >
+                    <option value="beginner">Beginner</option>
+                    <option value="expert">Expert</option>
+                  </select>
+                </div>
+              </div>
+
+              <ExplainButton traceStep={trace[cursor]} />
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <PreorderBar pre={PRE} cursor={cursor} trace={trace} />
+              <InorderBar ino={IN} cursor={cursor} trace={trace} />
+              {/* The main animated tree canvas */}
+              <TreeCanvas trace={trace} cursor={cursor} />
+            </div>
+          </div>
+
+          <TimeSlider
+            length={trace.length}
+            value={cursor}
+            onChange={(v) => {
+              setCursor(v);
+              setPlaying(false);
+            }}
+          />
+        </section>
+
+        <aside className="space-y-4">
+          <div className="bg-[#051025] border border-slate-800 rounded-2xl p-4">
+            <h3 className="font-semibold mb-3">Recursion Stack</h3>
+            <RecursionStack trace={trace} cursor={cursor} />
+          </div>
+
+          <div className="bg-[#041022] border border-slate-800 rounded-2xl p-4">
+            <h3 className="font-semibold mb-3">Code</h3>
+            <CodePanel trace={trace} cursor={cursor} mode={mode} />
+          </div>
+        </aside>
+      </main>
+    </div>
+  );
+}
