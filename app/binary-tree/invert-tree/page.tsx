@@ -8,6 +8,7 @@ import TracePanel from "@/components/binary-tree/invert-tree/TracePanel";
 import CodePanel from "@/components/binary-tree/invert-tree/CodePanel";
 import { generateInvertTrace } from "@/components/binary-tree/invert-tree/generateTrace";
 
+
 export default function Page() {
   const [trace, setTrace] = useState<any[]>([]);
   const [cursor, setCursor] = useState(0);
