@@ -3,7 +3,8 @@ export default function BinaryTreeIndexPage() {
     <div className="min-h-screen flex flex-col items-center justify-center text-slate-100 bg-black">
       <h1 className="text-4xl font-bold mb-6">Binary Tree Visualizations</h1>
 
-      <div className="flex flex-col gap-4 text-lg">
+      <div className="flex flex-col gap-4 text-lg text-center">
+
         <a
           className="text-cyan-400 underline hover:text-cyan-200"
           href="/binary-tree/max-depth"
@@ -13,10 +14,32 @@ export default function BinaryTreeIndexPage() {
 
         <a
           className="text-cyan-400 underline hover:text-cyan-200"
+          href="/binary-tree/same-tree"
+        >
+          Same Tree
+        </a>
+
+        <a
+          className="text-cyan-400 underline hover:text-cyan-200"
+          href="/binary-tree/invert-tree"
+        >
+          Invert Binary Tree
+        </a>
+
+        <a
+          className="text-cyan-400 underline hover:text-cyan-200"
+          href="/binary-tree/symmetric-tree"
+        >
+          Symmetric Tree
+        </a>
+
+        <a
+          className="text-cyan-400 underline hover:text-cyan-200"
           href="/binary-tree/construct-from-pre-in"
         >
           Construct Tree (Preorder + Inorder)
         </a>
+
       </div>
     </div>
   );
