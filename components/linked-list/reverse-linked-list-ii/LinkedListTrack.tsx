@@ -2,8 +2,9 @@
 "use client";
 
 import { ReverseIIStep } from "./generateTrace";
-import ListNodeViz from "./ListNodeViz";
+
 import PointerViz from "./PointerViz";
+import ListNodeViz from "./ListNodeViz"; // ✅ MISSING IMPORT FIXED
 
 export default function LinkedListTrack({ step }: { step: ReverseIIStep }) {
   return (
@@ -15,8 +16,17 @@ export default function LinkedListTrack({ step }: { step: ReverseIIStep }) {
       <div className="flex items-center gap-6 justify-center">
         {step.list.map((val, idx) => (
           <div key={idx} className="flex flex-col items-center gap-2">
-            <PointerViz label="PREV" visible={step.prevIndex === idx} color="emerald" />
-            <PointerViz label="TEMP" visible={step.tempIndex === idx} color="red" />
+            <PointerViz
+              label="PREV"
+              visible={step.prevIndex === idx}
+              color="emerald"
+            />
+
+            <PointerViz
+              label="TEMP"
+              visible={step.tempIndex === idx}
+              color="red"
+            />
 
             <ListNodeViz
               value={val}
@@ -27,7 +37,11 @@ export default function LinkedListTrack({ step }: { step: ReverseIIStep }) {
               reversing={step.reversing}
             />
 
-            <PointerViz label="CURR" visible={step.currIndex === idx} color="cyan" />
+            <PointerViz
+              label="CURR"
+              visible={step.currIndex === idx}
+              color="cyan"
+            />
           </div>
         ))}
       </div>

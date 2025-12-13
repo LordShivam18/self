@@ -1,4 +1,3 @@
-// app/linked-list/reverse-linked-list-ii/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -6,13 +5,13 @@ import { useEffect, useState } from "react";
 import {
   generateTrace,
   ReverseIIStep,
-} from "@/components/linked-list/reverse-linked-list-ii/generateTrace";
+} from "../../../components/linked-list/reverse-linked-list-ii/generateTrace";
 
-import LinkedListTrack from "@/components/linked-list/reverse-linked-list-ii/LinkedListTrack";
-import MicroscopeView from "@/components/linked-list/reverse-linked-list-ii/MicroscopeView";
-import TracePanel from "@/components/linked-list/reverse-linked-list-ii/TracePanel";
-import CodePanel from "@/components/linked-list/reverse-linked-list-ii/CodePanel";
-import Controls from "@/components/linked-list/reverse-linked-list-ii/Controls";
+import LinkedListTrack from "../../../components/linked-list/reverse-linked-list-ii/LinkedListTrack";
+import MicroscopeView from "../../../components/linked-list/reverse-linked-list-ii/MicroscopeView";
+import TracePanel from "../../../components/linked-list/reverse-linked-list-ii/TracePanel";
+import CodePanel from "../../../components/linked-list/reverse-linked-list-ii/CodePanel";
+import Controls from "../../../components/linked-list/reverse-linked-list-ii/Controls";
 
 export default function Page() {
   const [input, setInput] = useState("1,2,3,4,5");
@@ -24,7 +23,10 @@ export default function Page() {
   const [mode, setMode] = useState<"beginner" | "expert">("beginner");
 
   const parseInput = () =>
-    input.split(",").map((v) => Number(v.trim())).filter((n) => !isNaN(n));
+    input
+      .split(",")
+      .map((v) => Number(v.trim()))
+      .filter((n) => !isNaN(n));
 
   const regenerate = () => {
     const steps = generateTrace(parseInput(), left, right);
@@ -34,6 +36,7 @@ export default function Page() {
 
   useEffect(() => {
     regenerate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const step = trace[cursor];
@@ -47,12 +50,14 @@ export default function Page() {
           Reverse Linked List II — Visualizer
         </h1>
 
+        {/* Input + Controls */}
         <div className="rounded-2xl border border-slate-800 bg-[#020617] p-4 space-y-4">
           <div className="flex gap-4">
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               className="flex-1 rounded-lg bg-black border border-slate-700 px-3 py-2 text-sm"
+              placeholder="1,2,3,4,5"
             />
             <input
               type="number"
@@ -76,7 +81,9 @@ export default function Page() {
 
           <Controls
             prev={() => setCursor((c) => Math.max(0, c - 1))}
-            next={() => setCursor((c) => Math.min(trace.length - 1, c + 1))}
+            next={() =>
+              setCursor((c) => Math.min(trace.length - 1, c + 1))
+            }
             reset={() => setCursor(0)}
             canPrev={canPrev}
             canNext={canNext}
